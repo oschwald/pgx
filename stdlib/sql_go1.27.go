@@ -64,9 +64,19 @@ func (r *Rows) ScanColumn(scanCtx driver.ScanContext, index int, dest any) error
 		return sql.ConvertAssign(scanCtx, dest, value)
 	}
 
-	m := r.conn.conn.TypeMap()
-	fd := r.rows.FieldDescriptions()[index]
-	return m.Scan(fd.DataTypeOID, fd.Format, src, dest)
+	fieldDescriptions := r.rows.FieldDescriptions()
+	if r.scanPlans == nil {
+		r.scanPlans = make([]pgtype.ScanPlan, len(fieldDescriptions))
+		r.scanTypes = make([]reflect.Type, len(fieldDescriptions))
+	}
+	// Planning a scan is expensive, so reuse the plan while the destination
+	// type for the column stays the same.
+	if destType := reflect.TypeOf(dest); r.scanTypes[index] != destType {
+		fd := fieldDescriptions[index]
+		r.scanPlans[index] = r.conn.conn.TypeMap().PlanScan(fd.DataTypeOID, fd.Format, dest)
+		r.scanTypes[index] = destType
+	}
+	return r.scanPlans[index].Scan(src, dest)
 }
 
 // isSQLScanDestination includes named scalar types and nullable pointers to

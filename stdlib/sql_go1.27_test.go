@@ -311,6 +311,27 @@ func TestScanNativeByteSlices(t *testing.T) {
 	})
 }
 
+func TestScanNativeDestinationTypeChangesBetweenRows(t *testing.T) {
+	testWithAllQueryExecModes(t, func(t *testing.T, db *sql.DB) {
+		rows, err := db.Query("select array[n, n + 1]::int4[] from generate_series(1, 2) n")
+		require.NoError(t, err)
+		defer rows.Close()
+
+		require.True(t, rows.Next())
+		var a []int32
+		require.NoError(t, rows.Scan(&a))
+		assert.Equal(t, []int32{1, 2}, a)
+
+		require.True(t, rows.Next())
+		var b []int64
+		require.NoError(t, rows.Scan(&b))
+		assert.Equal(t, []int64{2, 3}, b)
+
+		require.False(t, rows.Next())
+		require.NoError(t, rows.Err())
+	})
+}
+
 func TestConnQueryPGTypeMultirange(t *testing.T) {
 	testWithAllQueryExecModes(t, func(t *testing.T, db *sql.DB) {
 		skipCockroachDB(t, db, "Server does not support int4range")

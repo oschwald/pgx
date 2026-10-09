@@ -643,6 +643,8 @@ type Rows struct {
 	conn         *Conn
 	rows         pgx.Rows
 	valueFuncs   []rowValueFunc
+	scanPlans    []pgtype.ScanPlan
+	scanTypes    []reflect.Type
 	skipNext     bool
 	skipNextMore bool
 
